@@ -30,6 +30,8 @@ import aeneas.globalfunctions as gf
 
 class TestVAD(unittest.TestCase):
 
+    # NOTE: These expected speech/nonspeech lengths are based on the old MFCC VAD.
+    # They will likely need adjustment after running tests with the new Silero VAD.
     FILES = [
         {
             "path": "res/vad/nsn.wav",
