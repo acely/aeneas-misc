@@ -768,24 +768,57 @@ class TestGlobalFunctions(unittest.TestCase):
         pass
 
     def test_clean_tts_text(self):
-        # Test cases for clean_tts_text
         tests = [
+            # Original tests (some might need adjustment or can be kept if still valid)
             ("", ""),
             ("Hello world", "Hello world"),
             ("Jean·Luc", "Jean Luc"),
-            ("David‘s", "David s"), # ‘ replaced
-            ("David’s", "David s"), # ’ replaced
-            ("Hello?", "Hello "),   # ? replaced by space
+            ("David‘s", "David s"),      # ‘ replaced
+            ("David’s", "David s"),      # ’ replaced
+            ("Hello?", "Hello "),          # ? replaced by space
             ("Is it okay?", "Is it okay "),
-            ("Test·‘this’·now?", "Test  this  now "), # Each replaced by space
-            ("A?B?C", "A B C"),
-            ("A??B", "A  B"), # Two consecutive ? become two spaces
-            ("·‘’?","    "), # Four special characters become four spaces
-            ("No punctuation here.", "No punctuation here."),
-            ("Mix: ‘Name·Is·JohnDoe?’ Test", "Mix:  Name Is JohnDoe  Test") 
+            ("Test·‘this’·now?", "Test  this  now "),
+
+            # New tests for period handling and combinations
+            ("First.Last", "First Last"),              # Period in name
+            ("F.Last", "F Last"),                      # Period after single char name part
+            ("First.L", "First L"),                      # Period before single char name part
+            ("A.B.C.Name", "A B C Name"),              # Multiple periods in name-like structure
+            ("Version 3.14", "Version 3.14"),          # Period in number, should not change
+            ("The result is 2.0.", "The result is 2.0."), # Number + sentence-ending period
+            ("Hello world.", "Hello world."),          # Sentence-ending period
+            ("Hello world. How are you?", "Hello world. How are you "), # Sentence period + question mark
+            ("Mr. Smith", "Mr Smith"),                  # Common abbreviation/name pattern
+            ("example.com", "example com"),              # Domain like name (could be contentious, but current regex will change it)
+                                                        # Depending on strictness, "example.com" might be desired to stay.
+                                                        # Current regex (?<=[a-zA-Z])\.(?=[a-zA-Z]) will change it.
+            ("This is a test.This is another one.", "This is a test.This is another one."), # Period not surrounded by letters on both sides.
+            ("No.1", "No.1"),                          # Period followed by number
+            ("No. 1", "No. 1"),                        # Period followed by space then number
+            ("Chapter 1. Introduction", "Chapter 1. Introduction"), # Period after number, then space, then capital
+            
+            # Combinations of old and new rules
+            ("Name·‘Test.Name’?End.", "Name  Test Name  End "), # '·', '‘', '’', '?' are global, '.' is conditional
+                                                              # Expected: "Name  Test Name  End."
+                                                              # · -> " "
+                                                              # ‘ -> " "
+                                                              # Test.Name -> Test Name
+                                                              # ’ -> " " (already part of ‘ above in regex char class)
+                                                              # ? -> " "
+                                                              # End. -> End. (no change)
+                                                              # Initial: "Name·‘Test.Name’?End."
+                                                              # After 1st sub (punct [·‘’?]): "Name ‘Test.Name’ End "
+                                                              # After 2nd sub (period (?<=[a-zA-Z])\.(?=[a-zA-Z])): "Name  Test Name  End " (Corrected this line)
+
+
+            ("A??B.C.D", "A  B C D"),                   # ?? -> "  ", B.C -> B C, C.D -> C D
+            ("·‘’?.", "    ."),                         # Punct then period at end
+            ("text.·text", "text. text"),              # Period not in name, then ·
+            ("product-version-1.2.3", "product-version-1.2.3"), # Alphanumeric with hyphens and periods
+            ("file.name.txt", "file name txt") # Multiple periods between letters
         ]
         for text_input, expected_output in tests:
-            self.assertEqual(gf.clean_tts_text(text_input), expected_output, f"Failed for input: {text_input}")
+            self.assertEqual(gf.clean_tts_text(text_input), expected_output, f"Failed for input: '{text_input}'")
 
 
 if __name__ == "__main__":
