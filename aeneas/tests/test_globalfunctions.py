@@ -767,6 +767,26 @@ class TestGlobalFunctions(unittest.TestCase):
         # TODO
         pass
 
+    def test_clean_tts_text(self):
+        # Test cases for clean_tts_text
+        tests = [
+            ("", ""),
+            ("Hello world", "Hello world"),
+            ("Jean·Luc", "Jean Luc"),
+            ("David‘s", "David s"), # ‘ replaced
+            ("David’s", "David s"), # ’ replaced
+            ("Hello?", "Hello "),   # ? replaced by space
+            ("Is it okay?", "Is it okay "),
+            ("Test·‘this’·now?", "Test  this  now "), # Each replaced by space
+            ("A?B?C", "A B C"),
+            ("A??B", "A  B"), # Two consecutive ? become two spaces
+            ("·‘’?","    "), # Four special characters become four spaces
+            ("No punctuation here.", "No punctuation here."),
+            ("Mix: ‘Name·Is·JohnDoe?’ Test", "Mix:  Name Is JohnDoe  Test") 
+        ]
+        for text_input, expected_output in tests:
+            self.assertEqual(gf.clean_tts_text(text_input), expected_output, f"Failed for input: {text_input}")
+
 
 if __name__ == "__main__":
     unittest.main()

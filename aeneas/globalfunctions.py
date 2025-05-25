@@ -142,6 +142,31 @@ def uuid_string():
     return safe_unicode(str(uuid.uuid4())).lower()
 
 
+def clean_tts_text(text: str) -> str:
+    """
+    Cleans text by replacing specific punctuation characters with a space.
+
+    This function is typically used to preprocess text before sending it to a
+    Text-To-Speech (TTS) engine, to avoid issues with unsupported characters
+    or to improve pronunciation.
+
+    The following characters are replaced with a single space:
+    - U+00B7 (·) MIDDLE DOT
+    - U+2018 (‘) LEFT SINGLE QUOTATION MARK
+    - U+2019 (’) RIGHT SINGLE QUOTATION MARK
+    - U+003F (?) QUESTION MARK (Note: While a common character, replacing it
+      can be beneficial for some TTS engines that might otherwise pause or
+      change intonation unexpectedly for questions when a flat read is desired.)
+
+    Args:
+        text: The input string to be cleaned.
+
+    Returns:
+        The cleaned string with specified characters replaced by spaces.
+    """
+    return re.sub(r"[·‘’?]", " ", text)
+
+
 def custom_tmp_dir():
     """
     Return the path of the temporary directory to use.
