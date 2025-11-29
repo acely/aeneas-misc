@@ -41,6 +41,7 @@ from aeneas.exacttiming import TimeValue
 from aeneas.logger import Loggable
 from aeneas.runtimeconfiguration import RuntimeConfiguration
 import aeneas.globalfunctions as gf
+from aeneas.globalfunctions import clean_tts_text
 
 
 class TTSCache(Loggable):
@@ -771,9 +772,11 @@ class BaseTTSWrapper(Loggable):
         self.log([u"Examining fragment %d (no cache)...", num])
         # synthesize and get the duration of the output file
         voice_code = self._language_to_voice_code(fragment.language)
+        cleaned_text = clean_tts_text(fragment.filtered_text)
+        self.log([u"Cleaned text for TTS: '%s'", cleaned_text]) # Optional: for debugging
         self.log(u"Calling helper function")
         succeeded, data = helper_function(
-            text=fragment.filtered_text,
+            text=cleaned_text,
             voice_code=voice_code,
             output_file_path=None,
             return_audio_data=True
@@ -788,7 +791,9 @@ class BaseTTSWrapper(Loggable):
     def _loop_use_cache(self, helper_function, num, fragment):
         """ Synthesize all fragments using the cache """
         self.log([u"Examining fragment %d (cache)...", num])
-        fragment_info = (fragment.language, fragment.filtered_text)
+        cleaned_text = clean_tts_text(fragment.filtered_text)
+        self.log([u"Cleaned text for cache key and TTS: '%s'", cleaned_text]) # Optional: for debugging
+        fragment_info = (fragment.language, cleaned_text)
         if self.cache.is_cached(fragment_info):
             self.log(u"Fragment cached: retrieving audio data from cache")
 
@@ -812,7 +817,7 @@ class BaseTTSWrapper(Loggable):
             voice_code = self._language_to_voice_code(fragment.language)
             self.log(u"Calling helper function")
             succeeded, data = helper_function(
-                text=fragment.filtered_text,
+                text=cleaned_text,
                 voice_code=voice_code,
                 output_file_path=file_path,
                 return_audio_data=True

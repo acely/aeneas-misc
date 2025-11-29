@@ -63,7 +63,7 @@ in several formats, depending on its application:
 2. [Python](https://python.org/) 2.7 (Linux, OS X, Windows) or 3.5 or later (Linux, OS X)
 3. [FFmpeg](https://www.ffmpeg.org/)
 4. [eSpeak](http://espeak.sourceforge.net/)
-5. Python packages `BeautifulSoup4`, `lxml`, and `numpy`
+5. Python packages `BeautifulSoup4`, `lxml`, `numpy`, `torch`, `torchaudio`, and `silero-vad`
 6. Python headers to compile the Python C/C++ extensions (optional but strongly recommended)
 7. A shell supporting UTF-8 (optional but strongly recommended)
 
@@ -234,14 +234,15 @@ which explains how to use the built-in command line tools.
 * Input audio file formats: all those readable by `ffmpeg`
 * Output sync map formats: AUD, CSV, EAF, JSON, SMIL, SRT, SSV, SUB, TEXTGRID, TSV, TTML, TXT, VTT, XML
 * Confirmed working on 38 languages: AFR, ARA, BUL, CAT, CYM, CES, DAN, DEU, ELL, ENG, EPO, EST, FAS, FIN, FRA, GLE, GRC, HRV, HUN, ISL, ITA, JPN, LAT, LAV, LIT, NLD, NOR, RON, RUS, POL, POR, SLK, SPA, SRP, SWA, SWE, TUR, UKR
-* MFCC and DTW computed via Python C extensions to reduce the processing time
+* MFCC and DTW computed via Python C extensions to reduce the processing time (Note: VAD is now Silero-based, not MFCC-based)
 * Several built-in TTS engine wrappers: AWS Polly TTS API, eSpeak (default), eSpeak-ng, Festival, MacOS (via say), Nuance TTS API
 * Default TTS (eSpeak) called via a Python C extension for fast audio synthesis
 * Possibility of running a custom, user-provided TTS engine Python wrapper (e.g., included example for speect)
 * Batch processing of multiple audio/text pairs
 * Download audio from a YouTube video
 * In multilevel mode, recursive alignment from paragraph to sentence to word level
-* In multilevel mode, MFCC resolution, MFCC masking, DTW margin, and TTS engine can be specified for each level independently
+* Voice Activity Detection using Silero VAD (replacing the previous MFCC-based VAD, since v1.8.0).
+* In multilevel mode, MFCC resolution, DTW margin, and TTS engine can be specified for each level independently (VAD configuration is global via rconf for Silero VAD).
 * Robust against misspelled/mispronounced words, local rearrangements of words, background noise/sporadic spikes
 * Adjustable splitting times, including a max character/second constraint for CC applications
 * Automated detection of audio head/tail
@@ -270,7 +271,7 @@ for languages with good ASR models,
 the quality of the alignment at word-level:
 
 * multilevel text (since v1.5.1),
-* MFCC nonspeech masking (since v1.7.0, disabled by default),
+* Voice Activity Detection using Silero VAD (replacing the previous MFCC-based VAD, since v1.8.0). Configuration for VAD is now handled via Silero-specific parameters in `rconf`.
 * use better TTS engines, like Festival or AWS/Nuance TTS API (since v1.5.0).
 
 If you use the ``aeneas.tools.execute_task`` command line tool,

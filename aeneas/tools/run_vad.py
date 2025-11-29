@@ -54,7 +54,7 @@ class RunVADCLI(AbstractCLIProgram):
     NAME = gf.file_name_without_extension(__file__)
 
     HELP = {
-        "description": u"Extract a list of speech intervals using the MFCC energy-based VAD.",
+        "description": u"Extract a list of speech intervals using the Silero VAD algorithm.",
         "synopsis": [
             (u"AUDIO_FILE [%s] [OUTPUT_FILE]" % (u"|".join(MODES)), True)
         ],

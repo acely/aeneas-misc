@@ -149,10 +149,10 @@ class AudioFileMFCC(Loggable):
             )
             self.audio_length = self.audio_file.audio_length
             if audio_file_was_none:
-                self.log(u"Clearing the audio data...")
-                self.audio_file.clear_data()
-                self.audio_file = None
-                self.log(u"Clearing the audio data... done")
+                self.log(u"Clearing the audio data (samples only)...")
+                self.audio_file.clear_data()  # This should set audio_samples to None but keep the object
+                # self.audio_file = None  # Do not nullify the object, VAD might need its metadata e.g. file_path
+                self.log(u"Clearing the audio data (samples only)... done")
         self.__middle_begin = 0
         self.__middle_end = self.__mfcc.shape[1]
         self.log(u"Initializing MFCCs... done")
@@ -581,58 +581,98 @@ class AudioFileMFCC(Loggable):
         self.is_reversed = not self.is_reversed
         self.log(u"Reversing...done")
 
-    def run_vad(
-        self,
-        log_energy_threshold=None,
-        min_nonspeech_length=None,
-        extend_before=None,
-        extend_after=None
-    ):
+    def run_vad(self):
         """
-        Determine which frames contain speech and nonspeech,
+        Determine which frames contain speech and nonspeech using Silero VAD,
         and store the resulting boolean mask internally.
-
-        The four parameters might be ``None``:
-        in this case, the corresponding RuntimeConfiguration values
-        are applied.
-
-        :param float log_energy_threshold: the minimum log energy threshold to consider a frame as speech
-        :param int min_nonspeech_length: the minimum length, in frames, of a nonspeech interval
-        :param int extend_before: extend each speech interval by this number of frames to the left (before)
-        :param int extend_after: extend each speech interval by this number of frames to the right (after)
+        Relies on aeneas.vad.VAD to fetch specific Silero parameters from rconf.
         """
-        def _compute_runs(array):
-            """
-            Compute runs as a list of arrays,
-            each containing the indices of a contiguous run.
+        temp_audio_file = None
+        current_audio_file_obj = self.audio_file
+        audio_samples_were_none = False
 
-            :param array: the data array
-            :type  array: :class:`numpy.ndarray` (1D)
-            :rtype: list of :class:`numpy.ndarray` (1D)
-            """
+        if current_audio_file_obj is None:
+            if self.file_path:
+                self.log(u"AudioFile object was None, creating temporary one for VAD.")
+                try:
+                    temp_audio_file = AudioFile(
+                        file_path=self.file_path,
+                        rconf=self.rconf,
+                        logger=self.logger
+                    )
+                    current_audio_file_obj = temp_audio_file
+                    # Audio samples will be loaded below
+                except Exception as e:
+                    self.log_exc(u"Failed to create temporary AudioFile for VAD.", e, True)
+                    current_audio_file_obj = None # Ensure it's None if creation failed
+            else:
+                self.log(u"AudioFile object is None and no file_path available, cannot run VAD.", error=True)
+
+        if current_audio_file_obj is None:
+            self.log(u"No AudioFile object available, cannot run VAD. Setting mask to all False.", error=True)
+            self.__mfcc_mask = numpy.zeros(self.all_length, dtype="bool")
+            self.__mfcc_mask_map = numpy.array([], dtype=int)
+            self.__speech_intervals = []
+            self.__nonspeech_intervals = []
+            return
+
+        if current_audio_file_obj.audio_samples is None:
+            self.log(u"Audio samples not loaded, reading from file for VAD.")
+            try:
+                # read_audio_from_file should use rconf for ffmpeg/ffprobe paths
+                current_audio_file_obj.read_audio_from_file()
+                audio_samples_were_none = True
+                if current_audio_file_obj.audio_samples is None: # Check if loading failed
+                    raise RuntimeError("audio_samples still None after read_audio_from_file")
+            except Exception as e:
+                self.log_exc(u"Failed to load audio samples for VAD.", e, True)
+                self.__mfcc_mask = numpy.zeros(self.all_length, dtype="bool")
+                self.__mfcc_mask_map = numpy.array([], dtype=int)
+                self.__speech_intervals = []
+                self.__nonspeech_intervals = []
+                if temp_audio_file: # if we created a temp one, clear its data if possible
+                    temp_audio_file.clear_data()
+                return
+        
+        self.log(u"Creating VAD object")
+        vad = VAD(rconf=self.rconf, logger=self.logger)
+        self.log(u"Running VAD with Silero...")
+
+        if not vad.SILERO_VAD_AVAILABLE:
+             self.log(u"Silero VAD is not available. Skipping VAD process. Mask will indicate no speech.", warning=True)
+             self.__mfcc_mask = numpy.zeros(self.all_length, dtype="bool") # Or handle as per application needs
+        else:
+            self.__mfcc_mask = vad.run_vad(
+                audio_waveform=current_audio_file_obj.audio_samples,
+                sample_rate=current_audio_file_obj.audio_sample_rate
+                # Silero-specific parameters like vad_threshold, min_speech_duration_ms, etc.,
+                # are handled internally by aeneas.vad.VAD by fetching them from rconf.
+            )
+        
+        self.__mfcc_mask_map = (numpy.where(self.__mfcc_mask))[0]
+        self.log(u"Running VAD with Silero... done")
+
+        if audio_samples_were_none and current_audio_file_obj == self.audio_file:
+            # Only clear if it's the persistent self.audio_file and we loaded it
+            self.log(u"Clearing audio samples from self.audio_file after VAD.")
+            self.audio_file.clear_data()
+        elif temp_audio_file: # if we created a temp one, clear its data
+            self.log(u"Clearing audio samples from temporary AudioFile after VAD.")
+            temp_audio_file.clear_data()
+
+        # Helper for computing runs, can be defined locally or be a static/class method if preferred
+        def _compute_runs_local(array):
             if len(array) < 1:
                 return []
             return numpy.split(array, numpy.where(numpy.diff(array) != 1)[0] + 1)
-        self.log(u"Creating VAD object")
-        vad = VAD(rconf=self.rconf, logger=self.logger)
-        self.log(u"Running VAD...")
-        self.__mfcc_mask = vad.run_vad(
-            wave_energy=self.__mfcc[0],
-            log_energy_threshold=log_energy_threshold,
-            min_nonspeech_length=min_nonspeech_length,
-            extend_before=extend_before,
-            extend_after=extend_after
-        )
-        self.__mfcc_mask_map = (numpy.where(self.__mfcc_mask))[0]
-        self.log(u"Running VAD... done")
+        
         self.log(u"Storing speech and nonspeech intervals...")
-        # where( == True) already computed, reusing
-        # COMMENTED runs = _compute_runs((numpy.where(self.__mfcc_mask))[0])
-        runs = _compute_runs(self.__mfcc_mask_map)
-        self.__speech_intervals = [(r[0], r[-1]) for r in runs]
+        # where( == True) already computed, reusing self.__mfcc_mask_map
+        runs = _compute_runs_local(self.__mfcc_mask_map)
+        self.__speech_intervals = [(r[0], r[-1]) for r in runs if r.size > 0] # Ensure run is not empty
         # where( == False) not already computed, computing now
-        runs = _compute_runs((numpy.where(~self.__mfcc_mask))[0])
-        self.__nonspeech_intervals = [(r[0], r[-1]) for r in runs]
+        runs = _compute_runs_local((numpy.where(~self.__mfcc_mask))[0])
+        self.__nonspeech_intervals = [(r[0], r[-1]) for r in runs if r.size > 0] # Ensure run is not empty
         self.log(u"Storing speech and nonspeech intervals... done")
 
     def set_head_middle_tail(self, head_length=None, middle_length=None, tail_length=None):

@@ -55,7 +55,10 @@ PKG_VERSION = "1.7.3.0"
 PKG_INSTALL_REQUIRES = [
     "BeautifulSoup4>=4.5.1",
     "lxml>=3.6.0",
-    "numpy>=1.9"
+    "numpy>=1.9",
+    "torch>=1.12.0",
+    "torchaudio>=0.12.0",
+    "silero-vad>=0.1"
 ]
 
 # required packages to install extra tools

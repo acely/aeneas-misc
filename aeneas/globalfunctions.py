@@ -142,6 +142,39 @@ def uuid_string():
     return safe_unicode(str(uuid.uuid4())).lower()
 
 
+def clean_tts_text(text: str) -> str:
+    """
+    Cleans text by replacing specific punctuation characters with a space.
+
+    This function is typically used to preprocess text before sending it to a
+    Text-To-Speech (TTS) engine, to avoid issues with unsupported characters
+    or to improve pronunciation.
+
+    The following characters are replaced with a single space:
+    - U+00B7 (·) MIDDLE DOT (globally)
+    - U+2018 (‘) LEFT SINGLE QUOTATION MARK (globally)
+    - U+2019 (’) RIGHT SINGLE QUOTATION MARK (globally)
+    - U+003F (?) QUESTION MARK (globally) (Note: While a common character, replacing it
+      can be beneficial for some TTS engines that might otherwise pause or
+      change intonation unexpectedly for questions when a flat read is desired.)
+    - U+002E (.) FULL STOP / PERIOD: replaced only when it occurs between two letters
+      (e.g., "Jean.Luc" becomes "Jean Luc"). Periods in numbers (e.g., "3.14")
+      or at the end of sentences (e.g., "end of text.") are not affected by this specific rule for periods.
+
+    Args:
+        text: The input string to be cleaned.
+
+    Returns:
+        The cleaned string with specified characters replaced by spaces.
+    """
+    processed_text = text
+    # First, replace specific global punctuation marks with a space
+    processed_text = re.sub(r"[·‘’?]", " ", processed_text)
+    # Then, replace periods only when they occur between two letters
+    processed_text = re.sub(r"(?<=[a-zA-Z])\.(?=[a-zA-Z])", " ", processed_text)
+    return processed_text
+
+
 def custom_tmp_dir():
     """
     Return the path of the temporary directory to use.
