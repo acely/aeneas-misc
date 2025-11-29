@@ -177,6 +177,7 @@ class DTWAligner(Loggable):
         self.log(u"Returning accumulated cost matrix")
         return self.dtw.compute_accumulated_cost_matrix()
 
+
     def compute_path(self):
         """
         Compute the min cost path between the two waves, and return it.
@@ -262,18 +263,11 @@ class DTWAligner(Loggable):
         self.log([u"Fragments:        %d", len(synt_anchors)])
         self.log([u"Path length:      %d", len(real_indices)])
         # synt_anchors as in seconds, convert them in MFCC indices
-        # see also issue #102
+        # This conversion is now robust against floating point inaccuracies
         mws = self.rconf.mws
         sample_rate = self.rconf.sample_rate
-        samples_per_mws = mws * sample_rate
-        if samples_per_mws.is_integer:
-            anchor_indices = numpy.array([int(a[0] / mws) for a in synt_anchors])
-        else:
-            #
-            # NOTE this is not elegant, but it saves the day for the user
-            #
-            self.log_warn(u"The number of samples in each window shift is not an integer, time drift might occur.")
-            anchor_indices = numpy.array([(int(a[0] * sample_rate / mws) / sample_rate) for a in synt_anchors])
+        frame_shift_in_samples = int(round(mws * sample_rate))
+        anchor_indices = numpy.array([int(round(a[0] * sample_rate / frame_shift_in_samples)) for a in synt_anchors])
         #
         # right side sets the split point at the very beginning of "next" fragment
         #

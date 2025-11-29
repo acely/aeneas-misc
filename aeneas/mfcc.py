@@ -212,19 +212,19 @@ class MFCC(Loggable):
         data_length = len(self.data)
 
         # frame length in number of samples
-        frame_length = int(self.window_length * self.sample_rate)
+        frame_length = int(round(self.window_length * self.sample_rate))
 
         # frame length must be at least equal to the FFT order
         frame_length_padded = max(frame_length, self.fft_order)
 
         # frame shift in number of samples
-        frame_shift = int(self.window_shift * self.sample_rate)
+        frame_shift = int(round(self.window_shift * self.sample_rate))
 
         # number of MFCC vectors (one for each frame)
-        # this number includes the last shift,
-        # where the data will be padded with zeros
-        # if the remaining samples are less than frame_length_padded
-        number_of_frames = int((1.0 * data_length) / frame_shift)
+        if data_length < frame_length:
+            number_of_frames = 0
+        else:
+            number_of_frames = 1 + int((data_length - frame_length) / frame_shift)
 
         # create Hamming window
         self.hamming_window = numpy.hamming(frame_length_padded)
